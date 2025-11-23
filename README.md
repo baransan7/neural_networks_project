@@ -31,8 +31,26 @@ cd ResidualMaskingNetwork
 pip install -e .
 ```
 
-## How to use
-### Run demo in Python (with webcam available)
+## Quick Start
+
+```python
+from rmn import RMN
+import cv2
+
+# Initialize the model
+m = RMN()
+
+# Detect emotions from an image
+image = cv2.imread("your-image.png")
+results = m.detect_emotion_for_single_frame(image)
+print(results)
+
+# Draw results on the image
+image = m.draw(image, results)
+cv2.imwrite("output.png", image)
+```
+
+## Webcam Demo
 
 ```python
 from rmn import RMN
@@ -40,15 +58,7 @@ m = RMN()
 m.video_demo()
 ```
 
-### Detect emotions from an image
 
-```python
-image = cv2.imread("some-image-path.png")
-results = m.detect_emotion_for_single_frame(image)
-print(results)
-image = m.draw(image, results)
-cv2.imwrite("output.png", image)
-```
 
 <p align="center">
 <img width="41%" src= "https://user-images.githubusercontent.com/24642166/117097030-d4176480-ad94-11eb-8c65-097a62ede067.png"/>
