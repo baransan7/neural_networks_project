@@ -177,3 +177,7 @@ Pham Luan, The Huynh Vu, and Tuan Anh Tran. "Facial Expression Recognition using
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=phamquiluan/residualmaskingnetwork&type=Date)](https://star-history.com/#phamquiluan/residualmaskingnetwork&Date)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
