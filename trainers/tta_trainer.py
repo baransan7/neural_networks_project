@@ -198,6 +198,29 @@ class FER2013Trainer(Trainer):
                 self._start_time.strftime("%Y%b%d_%H.%M"),
             ),
         )
+        
+        # ===== LOAD CHECKPOINT (BASELINE / EVAL) =====
+        ckpt_name = "resnet34_test_2025Dec19_14.49"
+        ckpt_path = os.path.join(self._checkpoint_dir, ckpt_name)
+
+        if os.path.exists(ckpt_path):
+            print(f"[INFO] Loading checkpoint: {ckpt_path}")
+            checkpoint = torch.load(ckpt_path, map_location=self._device)
+            self._model.load_state_dict(checkpoint["net"])
+        else:
+            print("[INFO] No checkpoint found, training from scratch")
+        # ============================================
+
+    #Load Checkpoint(Modified)
+    def _load_checkpoint(self, ckpt_path):
+        print(f"Loading checkpoint: {ckpt_path}")
+        checkpoint = torch.load(ckpt_path, map_location=self._device)
+
+        # most RMN checkpoints store model params like this
+        if "state_dict" in checkpoint:
+            self._model.load_state_dict(checkpoint["state_dict"])
+        else:
+            self._model.load_state_dict(checkpoint)
 
     def _train(self):
         self._model.train()
@@ -290,6 +313,8 @@ class FER2013Trainer(Trainer):
         )
 
         with torch.no_grad():
+            all_preds = []    #Added for confusion matrix (Modification)
+            all_targets = []  #Added for confusion matrix (Modification)
             for idx in tqdm(
                 range(len(self._test_set)), total=len(self._test_set), leave=False
             ):
@@ -309,9 +334,80 @@ class FER2013Trainer(Trainer):
                 outputs = torch.unsqueeze(outputs, 0)
                 # print(outputs.shape)
                 # TODO: try with softmax first and see the change
+                #Added for recording each output (Modification)
+                preds = outputs.argmax(dim=1)
+                all_preds.append(preds.item())
+                all_targets.append(targets.item())
+
                 acc = accuracy(outputs, targets)[0]
                 test_acc += acc.item()
                 f.writelines("{}_{}\n".format(idx, acc.item()))
+
+            #Added for generating Confusion Matrix using recorded data (Modification)
+            from sklearn.metrics import confusion_matrix, classification_report
+
+            cm = confusion_matrix(all_targets, all_preds)
+
+            print("Confusion Matrix:")
+            print(cm)
+
+            print("Classification Report:")
+            print(classification_report(
+            all_targets,
+            all_preds,
+            target_names=[
+                "Angry", "Disgust", "Fear",
+                "Happy", "Sad", "Surprise", "Neutral"
+            ]))
+            #Added for visual Confusion Matrix (Modification)
+            import matplotlib.pyplot as plt
+            import seaborn as sns
+
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=[
+                "Angry", "Disgust", "Fear",
+                "Happy", "Sad", "Surprise", "Neutral"
+            ],
+            yticklabels=[
+                "Angry", "Disgust", "Fear",
+                "Happy", "Sad", "Surprise", "Neutral"
+            ]
+            )
+            plt.xlabel("Predicted")
+            plt.ylabel("True")
+            plt.title("Weighted CE Confusion Matrix FER2013")
+            plt.tight_layout()
+            plt.savefig("wce_confusion_matrix_tta.png")
+            plt.close()
+
+            #Normalized Version (MODIFIED)
+            cm_norm = cm.astype("float") / cm.sum(axis=1, keepdims=True)
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(
+                cm_norm,
+                annot=True,
+                fmt=".2f",
+                cmap="Blues",
+                xticklabels=[
+                    "Angry", "Disgust", "Fear",
+                    "Happy", "Sad", "Surprise", "Neutral"
+                ],
+                yticklabels=[
+                    "Angry", "Disgust", "Fear",
+                    "Happy", "Sad", "Surprise", "Neutral"
+                ],
+            )
+            plt.xlabel("Predicted")
+            plt.ylabel("True")
+            plt.title("(Normalized) Weighted CE Confusion Matrix FER2013 ")
+            plt.tight_layout()
+            plt.savefig("norm_wce_confusion_matrix_tta.png")
+            plt.close()
 
             test_acc = test_acc / (idx + 1)
         print("Accuracy on private test with tta: {:.3f}".format(test_acc))
@@ -426,6 +522,11 @@ class FER2013Trainer(Trainer):
         )
         self._writer.add_scalar(
             "Loss/Val", self._val_loss_list[-1], self._current_epoch_num
+        )
+
+        current_lr = self._optimizer.param_groups[0]["lr"]
+        self._writer.add_scalar(
+            "LearningRate", current_lr, self._current_epoch_num
         )
 
         print(message)
